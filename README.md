@@ -14,7 +14,7 @@
 
 ```
 project/
-├── hit_music_kmeans.py        # โค้ดหลัก
+├── main.py                    # โค้ดหลัก
 ├── README.md
 ├── data/
 │   └── spotify_2023.csv       # ไฟล์ข้อมูล (ต้องวางเอง)

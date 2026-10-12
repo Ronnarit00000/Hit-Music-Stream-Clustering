@@ -39,8 +39,8 @@ def find_x_scaled(data: pd.DataFrame, features: list[str]):
 
 
 class HitMusicStreamModel:
-    def __init__(self, data_frame, x_scaled, k_range, features, directory_to_save_chart):
-        self.char_dir = directory_to_save_chart
+    def __init__(self, data_frame, x_scaled, k_range, features, chart_directory):
+        self.chart_dir = chart_directory
         self.data_frame = data_frame
         self.x_scaled = x_scaled
         self.k_range = k_range
@@ -71,7 +71,7 @@ class HitMusicStreamModel:
         axes[1].set_xticks(self.k_range)
 
         plt.tight_layout()
-        plt.savefig(f'{self.char_dir}/evaluation-{int(time.time())}.png', dpi=300)
+        plt.savefig(f'{self.chart_dir}/evaluation-{int(time.time())}.png', dpi=300)
         plt.close()
 
     # --- รัน K-Means ด้วยจำนวน cluster ที่เลือก แล้วเพิ่มคอลัมน์ 'cluster' ลงใน data_frame ---
@@ -97,25 +97,28 @@ class HitMusicStreamModel:
         ax.legend(handles + ax.get_legend_handles_labels()[0], [f'cluster {i}' for i in range(self.k_cluster)] + ['centroid'])
 
         plt.tight_layout()
-        plt.savefig(f'{self.char_dir}/clusters-{int(time.time())}.png', dpi=300)
+        plt.savefig(f'{self.chart_dir}/clusters-{int(time.time())}.png', dpi=300)
         plt.close()
 
 if __name__ == "__main__":
     # กำหนด folder ไว้เก็บ chart
-    DIRECTORY = 'chart'
+    CHART_DIRECTORY = 'chart'
 
     # path dataset
     PATH = os.environ.get("SPOTIFY_CSV", "data/spotify_2023.csv")
 
-    os.makedirs(DIRECTORY, exist_ok=True)
+    os.makedirs(CHART_DIRECTORY, exist_ok=True)
     warnings.filterwarnings("ignore")
 
     # ==============================================================================
     # 1. DATA PREPROCESSING
     # ==============================================================================
 
-    # load data เเละ clean data
-    DATA_FRAME = clean_data(load_data(PATH))
+    # load data
+    DATA = load_data(PATH)
+
+    # clean data
+    DATA_FRAME = clean_data(DATA)
 
     # เลือก feature ที่ใช่ในการจัดกลุม
     FEATURES = [
@@ -138,13 +141,13 @@ if __name__ == "__main__":
     # 2. MODEL: CLUSTERING
     # ==============================================================================
 
-    model = HitMusicStreamModel(DATA_FRAME, X_SCALED, K_RANGE, FEATURES, DIRECTORY)
+    model = HitMusicStreamModel(DATA_FRAME, X_SCALED, K_RANGE, FEATURES, CHART_DIRECTORY)
 
     # รัน KMeans สำหรับทุกค่า k ใน k_range คำนวณ inertia (Elbow) และ Silhouette Score บันทึกกราฟเปรียบเทียบ
     # ดู elbow + silhouette จากรูป evaluation-*.png เพื่อเลือก k
     model.clustering_evaluation()
 
-    # ตามที่เลือกจากกราฟ (หรือใส่ best_k)
+    # การจัดกลุ่ม ตามที่เลือกจากกราฟ (หรือใส่ best_k)
     best_k = 3
 
     # รัน KMeans ด้วยค่า k ที่เลือก เพิ่มคอลัมน์ cluster ลงใน DataFrame และพิมพ์จำนวนเพลงในแต่ละ cluster

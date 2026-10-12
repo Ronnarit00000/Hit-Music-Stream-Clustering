@@ -21,8 +21,6 @@ project/
 └── chart/                     # สร้างอัตโนมัติเมื่อรันโค้ด
     ├── evaluation-<time>.png
     ├── clusters-<time>.png
-    ├── profile-<time>.png
-    └── cluster-size-<time>.png
 ```
 
 ## สิ่งที่ต้องมี
@@ -89,11 +87,7 @@ model.fit_kmeans(k=3)        # เปลี่ยนเลข 3 เป็นค�
 |---|---|
 | `clustering_evaluation()` | รัน KMeans สำหรับทุกค่า k ใน `k_range` คำนวณ inertia (Elbow) และ Silhouette Score บันทึกกราฟเปรียบเทียบ และ return ค่า k ที่ silhouette สูงสุด |
 | `fit_kmeans(k)` | รัน KMeans ด้วยค่า k ที่เลือก เพิ่มคอลัมน์ `cluster` ลงใน DataFrame และพิมพ์จำนวนเพลงในแต่ละ cluster |
-| `cluster_summary()` | คำนวณค่าเฉลี่ยของแต่ละ feature ต่อ cluster ใช้ตีความว่า cluster ไหนเป็นกลุ่มเพลงฮิต |
 | `plot_clusters()` | ลดมิติด้วย PCA เหลือ 2 แกน แล้ววาด scatter plot สีตาม cluster พร้อมจุด centroid |
-| `plot_cluster_profile()` | กราฟแท่งเทียบค่า z-score ของแต่ละ feature ในแต่ละ cluster อ่านได้ง่ายว่า cluster ไหนสูง/ต่ำด้านใด |
-| `plot_cluster_size()` | กราฟแท่งจำนวนเพลงในแต่ละ cluster |
-| `top_songs(n)` | พิมพ์เพลงที่ยอดสตรีมสูงสุด n อันดับแรกของแต่ละ cluster |
 
 ## ผลลัพธ์ที่ได้
 
@@ -101,36 +95,3 @@ model.fit_kmeans(k=3)        # เปลี่ยนเลข 3 เป็นค�
 
 - `evaluation-*.png` กราฟ Elbow และ Silhouette ใช้เลือกค่า k
 - `clusters-*.png` scatter plot ของ cluster (PCA 2D)
-- `profile-*.png` โปรไฟล์ของแต่ละ cluster
-- `cluster-size-*.png` จำนวนเพลงต่อ cluster
-
-### ไฟล์ข้อมูล
-
-- `spotify_2023_clustered.csv` ข้อมูลเดิมพร้อมคอลัมน์ `cluster`
-
-### ตัวอย่างผลจากข้อมูลชุดนี้ (k = 3)
-
-Silhouette Score สูงสุดที่ k = 3 (ประมาณ 0.53)
-
-| Cluster | จำนวนเพลง | ลักษณะ |
-|---|---|---|
-| 0 | 755 | กลุ่มทั่วไป ยอดสตรีมและการติดชาร์ตต่ำกว่ากลุ่มอื่น |
-| 1 | 87 | ติดชาร์ตเยอะ (เฉลี่ย `in_spotify_charts` ประมาณ 53) |
-| 2 | 111 | ยอดสตรีมสูงมาก (เฉลี่ยประมาณ 1.7 พันล้าน) เช่น Blinding Lights, Shape of You |
-
-ตัวเลขอาจต่างกันเล็กน้อยหากข้อมูลหรือเวอร์ชันของไลบรารีต่างกัน
-
-## การแก้ปัญหาเบื้องต้น
-
-| ปัญหา | วิธีแก้ |
-|---|---|
-| `FileNotFoundError` | ตรวจสอบว่าไฟล์อยู่ที่ `data/spotify_2023.csv` หรือกำหนด `SPOTIFY_CSV` |
-| `KeyError` ชื่อคอลัมน์ | ตรวจสอบว่าไฟล์ CSV มีคอลัมน์ตามรายการ Features ข้างต้น |
-| ชื่อเพลงแสดงเป็นอักขระแปลก | เป็นผลจาก encoding `latin-1` ไม่กระทบการคำนวณ |
-| `TypeError` ที่ `list[str]` | ใช้ Python ต่ำกว่า 3.9 ให้อัปเกรด หรือเปลี่ยนเป็น `from typing import List` |
-
-## ข้อจำกัด
-
-- KMeans สมมติว่า cluster มีรูปทรงกลมและขนาดใกล้เคียงกัน ข้อมูลนี้มี outlier (เพลงยอดสตรีมสูงมาก) จึงอาจทำให้ cluster ขนาดไม่เท่ากัน
-- PCA 2 แกนเป็นเพียงการลดมิติเพื่อแสดงภาพ อาจไม่ได้สะท้อนความแตกต่างของทุก feature
-- ชื่อ cluster (0, 1, 2) เป็นเพียงหมายเลข ต้องดูจากตารางสรุปเพื่อตีความเอง

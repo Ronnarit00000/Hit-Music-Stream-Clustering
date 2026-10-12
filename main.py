@@ -9,15 +9,11 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
-PATH = os.environ.get("SPOTIFY_CSV", "data/spotify_2023.csv")
-CHART_DIR = "chart"
-
 
 def load_data(path: str):
     return pd.read_csv(path, encoding='latin-1')
 
 
-# --- ลบ comma ก่อนแปลงเป็นตัวเลข (เช่น "1,170" -> 1170) ไม่เช่นนั้นจะกลายเป็น NaN -> 0 ---
 def to_number(series: pd.Series):
     return pd.to_numeric(series.astype(str).str.replace(",", ""), errors="coerce").fillna(0)
 
@@ -43,7 +39,8 @@ def find_x_scaled(data: pd.DataFrame, features: list[str]):
 
 
 class HitMusicStreamModel:
-    def __init__(self, data_frame, x_scaled, k_range, features):
+    def __init__(self, data_frame, x_scaled, k_range, features, directory_to_save_chart):
+        self.char_dir = directory_to_save_chart
         self.data_frame = data_frame
         self.x_scaled = x_scaled
         self.k_range = k_range
@@ -74,29 +71,14 @@ class HitMusicStreamModel:
         axes[1].set_xticks(self.k_range)
 
         plt.tight_layout()
-        plt.savefig(f'{CHART_DIR}/evaluation-{int(time.time())}.png', dpi=300)
+        plt.savefig(f'{self.char_dir}/evaluation-{int(time.time())}.png', dpi=300)
         plt.close()
 
-        best_k = list(self.k_range)[int(np.argmax(silhouette))]
-        print(f"k ที่ silhouette สูงสุด = {best_k} ({max(silhouette)})")
-        self.k_cluster = best_k
-        return best_k
-
     # --- รัน K-Means ด้วยจำนวน cluster ที่เลือก แล้วเพิ่มคอลัมน์ 'cluster' ลงใน data_frame ---
-    def fit_kmeans(self, k=None):
-        if k is not None:
-            self.k_cluster = k
+    def fit_kmeans(self, k: int):
+        self.k_cluster = k
         self.kmeans = KMeans(n_clusters=self.k_cluster, random_state=42, n_init=10)
         self.data_frame["cluster"] = self.kmeans.fit_predict(self.x_scaled)
-        print("\nจำนวนเพลงในแต่ละ cluster:")
-        print(self.data_frame["cluster"].value_counts().sort_index())
-
-    # --- ค่าเฉลี่ยของแต่ละ feature ในแต่ละ cluster (ใช้ตีความว่า cluster ไหนคือเพลงฮิต) ---
-    def cluster_summary(self):
-        summary = self.data_frame.groupby("cluster")[self.features].mean().round(2)
-        summary["n_songs"] = self.data_frame["cluster"].value_counts().sort_index()
-        print("\nค่าเฉลี่ยของแต่ละ cluster:")
-        print(summary)
 
     # --- Scatter plot ของ cluster (ลดมิติด้วย PCA เหลือ 2 แกน) + จุดศูนย์กลาง ---
     def plot_clusters(self):
@@ -113,55 +95,29 @@ class HitMusicStreamModel:
         ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)')
         handles, _ = scatter.legend_elements()
         ax.legend(handles + ax.get_legend_handles_labels()[0], [f'cluster {i}' for i in range(self.k_cluster)] + ['centroid'])
+
         plt.tight_layout()
-        plt.savefig(f'{CHART_DIR}/clusters-{int(time.time())}.png', dpi=300)
+        plt.savefig(f'{self.char_dir}/clusters-{int(time.time())}.png', dpi=300)
         plt.close()
-
-    # --- กราฟแท่งเปรียบเทียบ feature ของแต่ละ cluster (หลัง scale แล้ว อ่านเทียบกันได้) ---
-    def plot_cluster_profile(self):
-        scaled_df = pd.DataFrame(self.x_scaled, columns=self.features)
-        scaled_df["cluster"] = self.data_frame["cluster"].values
-        profile = scaled_df.groupby("cluster")[self.features].mean()
-
-        ax = profile.T.plot(kind="bar", figsize=(12, 6), width=0.8, colormap='tab10')
-        ax.axhline(0, color='black', linewidth=0.8)
-        ax.set_title('Cluster Profile (standardized mean of each feature)', fontsize=12)
-        ax.set_ylabel('z-score')
-        ax.legend(title='cluster')
-        plt.xticks(rotation=30, ha='right')
-        plt.tight_layout()
-        plt.savefig(f'{CHART_DIR}/profile-{int(time.time())}.png', dpi=300)
-        plt.close()
-
-    # --- กราฟแท่งจำนวนเพลงต่อ cluster ---
-    def plot_cluster_size(self):
-        counts = self.data_frame["cluster"].value_counts().sort_index()
-
-        fig, ax = plt.subplots(figsize=(7, 5))
-        bars = ax.bar(counts.index.astype(str), counts.values, color=plt.cm.tab10.colors[:len(counts)])
-        ax.bar_label(bars)
-        ax.set_title('Number of songs per cluster', fontsize=12)
-        ax.set_xlabel('cluster')
-        ax.set_ylabel('songs')
-        plt.tight_layout()
-        plt.savefig(f'{CHART_DIR}/cluster-size-{int(time.time())}.png', dpi=300)
-        plt.close()
-
-    # --- ตัวอย่างเพลงยอดสตรีมสูงสุดในแต่ละ cluster ---
-    def top_songs(self, n=5):
-        for c, g in self.data_frame.groupby("cluster"):
-            print(f"\n--- cluster {c} : top {n} by streams ---")
-            print(g.nlargest(n, "streams")[["track_name", "artist(s)_name", "streams"]].to_string(index=False))
-
 
 if __name__ == "__main__":
-    os.makedirs(CHART_DIR, exist_ok=True)
+    # กำหนด folder ไว้เก็บ chart
+    DIRECTORY = 'chart'
+
+    # path dataset
+    PATH = os.environ.get("SPOTIFY_CSV", "data/spotify_2023.csv")
+
+    os.makedirs(DIRECTORY, exist_ok=True)
     warnings.filterwarnings("ignore")
 
     # ==============================================================================
     # 1. DATA PREPROCESSING
     # ==============================================================================
 
+    # load data เเละ clean data
+    DATA_FRAME = clean_data(load_data(PATH))
+
+    # เลือก feature ที่ใช่ในการจัดกลุม
     FEATURES = [
         'streams',
         'in_spotify_charts',
@@ -172,19 +128,27 @@ if __name__ == "__main__":
         'in_apple_playlists'
     ]
 
-    DATA_FRAME = clean_data(load_data(PATH))
+    # ทำ standardization ให้ทุก feature มีค่าเฉลี่ย 0 และส่วนเบี่ยงเบนมาตรฐาน 1 เพื่อไม่ให้ feature ที่ตัวเลขใหญ่
     X_SCALED = find_x_scaled(DATA_FRAME, FEATURES)
+
+    # กำหนด range การจัดกลุ่ม 2 - 10
     K_RANGE = range(2, 11)
 
     # ==============================================================================
     # 2. MODEL: CLUSTERING
     # ==============================================================================
 
-    model = HitMusicStreamModel(DATA_FRAME, X_SCALED, K_RANGE, FEATURES)
-    best_k = model.clustering_evaluation()      # 1) ดู elbow + silhouette เพื่อเลือก k
-    model.fit_kmeans(best_k)                    # 2) แก้เลข k ตามที่เลือกจากกราฟ (หรือใส่ best_k)
-    model.cluster_summary()                     # 3) สรุปค่าเฉลี่ยต่อ cluster
-    model.plot_clusters()                       # 4) กราฟ scatter (PCA)
-    model.plot_cluster_profile()                # 5) กราฟโปรไฟล์ของแต่ละ cluster
-    model.plot_cluster_size()                   # 6) กราฟจำนวนเพลงต่อ cluster
-    model.top_songs()                           # 7) ตัวอย่างเพลงในแต่ละ cluster
+    model = HitMusicStreamModel(DATA_FRAME, X_SCALED, K_RANGE, FEATURES, DIRECTORY)
+
+    # รัน KMeans สำหรับทุกค่า k ใน k_range คำนวณ inertia (Elbow) และ Silhouette Score บันทึกกราฟเปรียบเทียบ
+    # ดู elbow + silhouette จากรูป evaluation-*.png เพื่อเลือก k
+    model.clustering_evaluation()
+
+    # ตามที่เลือกจากกราฟ (หรือใส่ best_k)
+    best_k = 3
+
+    # รัน KMeans ด้วยค่า k ที่เลือก เพิ่มคอลัมน์ cluster ลงใน DataFrame และพิมพ์จำนวนเพลงในแต่ละ cluster
+    model.fit_kmeans(best_k)
+
+    # กราฟ scatter ลดมิติด้วย PCA เหลือ 2 แกน แล้ววาด scatter plot สีตาม cluster พร้อมจุด centroid
+    model.plot_clusters()

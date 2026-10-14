@@ -38,18 +38,20 @@ def find_x_scaled(data: pd.DataFrame, features: list[str]):
     return scaler.fit_transform(data[features])
 
 
-class HitMusicStreamModel:
+class KMeansClustering:
     def __init__(self, data_frame, x_scaled, k_range, features, chart_directory):
         self.chart_dir = chart_directory
         self.data_frame = data_frame
+        self.features = features
         self.x_scaled = x_scaled
         self.k_range = k_range
-        self.features = features
         self.k_cluster = None
         self.kmeans = None
+        self.elbow = None
+        self.silhouette = None
 
     # --- หาค่า k ---
-    def clustering_evaluation(self):
+    def evaluation(self):
         elbow, silhouette = [], []
         for k in self.k_range:
             km = KMeans(n_clusters=k, random_state=42, n_init=10)
@@ -57,14 +59,26 @@ class HitMusicStreamModel:
             elbow.append(km.inertia_)
             silhouette.append(silhouette_score(self.x_scaled, labels))
 
+        self.elbow = elbow
+        self.silhouette = silhouette
+
+    # --- รัน K-Means ด้วยจำนวน cluster ที่เลือก แล้วเพิ่มคอลัมน์ 'cluster' ลงใน data_frame ---
+    def fit(self, k: int):
+        self.k_cluster = k
+        self.kmeans = KMeans(n_clusters=self.k_cluster, random_state=42, n_init=10)
+        self.data_frame["cluster"] = self.kmeans.fit_predict(self.x_scaled)
+
+    # --- สร้าง plot elbow กับ silhouette เพื่อหา best K
+    def plot_evaluation(self):
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-        axes[0].plot(self.k_range, elbow, 'o-', color='#1f77b4', linewidth=1.5, markersize=6)
+
+        axes[0].plot(self.k_range, self.elbow, 'o-', color='#1f77b4', linewidth=1.5, markersize=6)
         axes[0].set_title('Elbow Method (option k)', fontsize=12)
         axes[0].set_xlabel('number of cluster (k)', fontsize=10)
         axes[0].set_ylabel('inertia', fontsize=10)
         axes[0].set_xticks(self.k_range)
 
-        axes[1].plot(self.k_range, silhouette, 'o-', color='#2ca02c', linewidth=1.5, markersize=6)
+        axes[1].plot(self.k_range, self.silhouette, 'o-', color='#2ca02c', linewidth=1.5, markersize=6)
         axes[1].set_title('Silhouette Method (cluster separation)', fontsize=12)
         axes[1].set_xlabel('number of cluster (k)', fontsize=10)
         axes[1].set_ylabel('silhouette score', fontsize=10)
@@ -73,12 +87,6 @@ class HitMusicStreamModel:
         plt.tight_layout()
         plt.savefig(f'{self.chart_dir}/evaluation-{int(time.time())}.png', dpi=300)
         plt.close()
-
-    # --- รัน K-Means ด้วยจำนวน cluster ที่เลือก แล้วเพิ่มคอลัมน์ 'cluster' ลงใน data_frame ---
-    def fit_kmeans(self, k: int):
-        self.k_cluster = k
-        self.kmeans = KMeans(n_clusters=self.k_cluster, random_state=42, n_init=10)
-        self.data_frame["cluster"] = self.kmeans.fit_predict(self.x_scaled)
 
     # --- Scatter plot ของ cluster (ลดมิติด้วย PCA เหลือ 2 แกน) + จุดศูนย์กลาง ---
     def plot_clusters(self):
@@ -141,17 +149,19 @@ if __name__ == "__main__":
     # 2. MODEL: CLUSTERING
     # ==============================================================================
 
-    model = HitMusicStreamModel(DATA_FRAME, X_SCALED, K_RANGE, FEATURES, CHART_DIRECTORY)
+    model = KMeansClustering(DATA_FRAME, X_SCALED, K_RANGE, FEATURES, CHART_DIRECTORY)
 
     # รัน KMeans สำหรับทุกค่า k ใน k_range คำนวณ inertia (Elbow) และ Silhouette Score บันทึกกราฟเปรียบเทียบ
+    model.evaluation()
+
     # ดู elbow + silhouette จากรูป evaluation-*.png เพื่อเลือก k
-    model.clustering_evaluation()
+    model.plot_evaluation()
 
     # การจัดกลุ่ม ตามที่เลือกจากกราฟ (หรือใส่ best_k)
-    best_k = 3
+    BEST_K = 3
 
     # รัน KMeans ด้วยค่า k ที่เลือก เพิ่มคอลัมน์ cluster ลงใน DataFrame และพิมพ์จำนวนเพลงในแต่ละ cluster
-    model.fit_kmeans(best_k)
+    model.fit(BEST_K)
 
     # กราฟ scatter ลดมิติด้วย PCA เหลือ 2 แกน แล้ววาด scatter plot สีตาม cluster พร้อมจุด centroid
     model.plot_clusters()

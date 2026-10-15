@@ -179,5 +179,5 @@ if __name__ == "__main__":
     # กราฟ scatter ลดมิติด้วย PCA เหลือ 2 แกน แล้ววาด scatter plot สีตาม cluster พร้อมจุด centroid
     model.plot_clusters()
 
-    # กราฟ แสดงเพลงใน
+    # กราฟ แสดงเพลงในเเต่ละกลุ่ม
     model.plot_cluster_size()

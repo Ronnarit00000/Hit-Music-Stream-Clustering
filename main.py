@@ -67,6 +67,7 @@ class KMeansClustering:
         self.k_cluster = k
         self.kmeans = KMeans(n_clusters=self.k_cluster, random_state=42, n_init=10)
         self.data_frame["cluster"] = self.kmeans.fit_predict(self.x_scaled)
+        print(self.kmeans.labels_)
 
     # --- สร้าง plot elbow กับ silhouette เพื่อหา best K
     def plot_evaluation(self):

@@ -108,6 +108,19 @@ class KMeansClustering:
         plt.savefig(f'{self.chart_dir}/clusters-{int(time.time())}.png', dpi=300)
         plt.close()
 
+    def plot_cluster_size(self):
+        counts = self.data_frame["cluster"].value_counts().sort_index()
+        fig, ax = plt.subplots(figsize=(7, 5))
+        bars = ax.bar(counts.index.astype(str), counts.values, color=plt.cm.tab10.colors[:len(counts)])
+        ax.bar_label(bars)
+        ax.set_title('Number of songs per cluster', fontsize=12)
+        ax.set_xlabel('cluster')
+        ax.set_ylabel('songs')
+        plt.tight_layout()
+        plt.savefig(f'{self.chart_dir}/cluster-size-{int(time.time())}.png', dpi=300)
+        plt.close()
+
+
 if __name__ == "__main__":
     # กำหนด folder ไว้เก็บ chart
     CHART_DIRECTORY = 'chart'
@@ -165,3 +178,6 @@ if __name__ == "__main__":
 
     # กราฟ scatter ลดมิติด้วย PCA เหลือ 2 แกน แล้ววาด scatter plot สีตาม cluster พร้อมจุด centroid
     model.plot_clusters()
+
+    # กราฟ แสดงเพลงใน
+    model.plot_cluster_size()
